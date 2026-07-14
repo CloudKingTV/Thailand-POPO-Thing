@@ -263,6 +263,15 @@ function publicReport(r) {
   return rest;
 }
 
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    storage: pool ? "postgres" : "files",
+    reports: reports.length,
+    spots: knownSpots.length,
+  });
+});
+
 app.get("/api/reports", (req, res) => {
   pruneExpired();
   res.json({ reports: reports.map(publicReport) });
