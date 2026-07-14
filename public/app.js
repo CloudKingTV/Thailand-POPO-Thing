@@ -29,6 +29,7 @@ const I18N = {
     hourAgo: "ชม.ที่แล้ว",
     locating: "กำลังหาตำแหน่งของคุณ...",
     locationError: "ไม่สามารถหาตำแหน่งได้",
+    title: "POPO Map — ด่านตรวจกรุงเทพฯ",
     types: {
       checkpoint: "ด่านตรวจ",
       license: "ตรวจใบขับขี่",
@@ -62,6 +63,7 @@ const I18N = {
     hourAgo: "h ago",
     locating: "Finding your location...",
     locationError: "Couldn't get your location",
+    title: "POPO Map — Bangkok Police Checkpoints",
     types: {
       checkpoint: "Checkpoint",
       license: "License check",
@@ -82,7 +84,9 @@ const TYPE_EMOJI = {
   police: "👮",
 };
 
-let lang = localStorage.getItem("popo-lang") || "th";
+// Saved preference wins; otherwise follow the browser language.
+let lang = localStorage.getItem("popo-lang") ||
+  ((navigator.language || "").toLowerCase().startsWith("th") ? "th" : "en");
 const t = (key) => I18N[lang][key] ?? key;
 const typeName = (type) => I18N[lang].types[type] ?? type;
 
@@ -144,6 +148,7 @@ function timeAgo(ts) {
 function applyLang() {
   langBtn.textContent = lang === "th" ? "EN" : "ไทย";
   document.documentElement.lang = lang;
+  document.title = t("title");
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     el.textContent = t(el.dataset.i18n);
   });
