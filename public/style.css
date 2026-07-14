@@ -247,13 +247,32 @@ html, body {
 }
 .report-marker.stale { border-color: #9ca3af; opacity: 0.75; }
 
-/* Usual-spot markers: quieter than live reports */
+/* Usual-spot markers: a distinct solid indigo pin with a precise tip, so
+   recurring spots are easy to pinpoint and clearly different from live reports */
 .spot-marker {
+  position: relative;
+  width: 34px; height: 34px;
+  background: #4f46e5;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px;
-  font-size: 22px;
-  filter: grayscale(0.25);
-  opacity: 0.9;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+.spot-marker .spot-glyph {
+  font-size: 16px;
+  line-height: 1;
+}
+/* downward pointer so the pin marks the exact location */
+.spot-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -11px;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 11px solid #4f46e5;
 }
 
 .popup-title { font-weight: 700; font-size: 15px; margin-bottom: 2px; }

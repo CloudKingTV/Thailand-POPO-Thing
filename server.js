@@ -10,6 +10,10 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "reports.json");
 const SPOTS_FILE = path.join(DATA_DIR, "known-spots.json");
+// When DATABASE_URL is set (e.g. on Render) data is stored in Postgres so it
+// survives restarts and redeploys. Without it, we fall back to local JSON
+// files — handy for local development.
+const DATABASE_URL = process.env.DATABASE_URL || "";
 
 // How long a report stays on the map without anyone confirming it.
 const REPORT_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
@@ -55,6 +59,9 @@ const SEED_SPOTS = [
 
 let reports = [];
 let knownSpots = [];
+let pool = null; // Postgres pool when DATABASE_URL is set
+
+// --- File helpers (fallback when there is no database) ---------------------
 
 function readJson(file, fallback) {
   try {
@@ -64,12 +71,56 @@ function readJson(file, fallback) {
   }
 }
 
-function loadReports() {
-  reports = readJson(DATA_FILE, []);
+function saveJson(file, data) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const tmp = file + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(data));
+  fs.renameSync(tmp, file);
 }
 
-function loadKnownSpots() {
-  const existing = readJson(SPOTS_FILE, null);
+// --- Persistence layer: Postgres if configured, otherwise JSON files -------
+// Data is kept in memory and snapshotted per collection ("reports",
+// "known_spots"), which keeps the rest of the app's logic simple and
+// synchronous while still surviving restarts.
+
+async function initStore() {
+  if (!DATABASE_URL) {
+    console.log("Storage: local JSON files (set DATABASE_URL for persistence)");
+    return;
+  }
+  const { default: pg } = await import("pg");
+  pool = new pg.Pool({
+    connectionString: DATABASE_URL,
+    ssl: DATABASE_URL.includes("localhost") ? false : { rejectUnauthorized: false },
+  });
+  await pool.query("CREATE TABLE IF NOT EXISTS kv (key text PRIMARY KEY, value jsonb NOT NULL)");
+  console.log("Storage: Postgres");
+}
+
+async function loadKey(key, file, fallback) {
+  if (pool) {
+    const r = await pool.query("SELECT value FROM kv WHERE key = $1", [key]);
+    return r.rows.length ? r.rows[0].value : fallback;
+  }
+  return readJson(file, fallback);
+}
+
+async function persist(key, file, data) {
+  if (pool) {
+    await pool.query(
+      "INSERT INTO kv (key, value) VALUES ($1, $2::jsonb) " +
+        "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+      [key, JSON.stringify(data)]
+    );
+  } else {
+    saveJson(file, data);
+  }
+}
+
+async function loadAll() {
+  reports = (await loadKey("reports", DATA_FILE, [])) || [];
+
+  const existing = await loadKey("known_spots", SPOTS_FILE, null);
   if (Array.isArray(existing)) {
     knownSpots = existing;
     return;
@@ -88,14 +139,7 @@ function loadKnownSpots() {
     createdAt: now,
     lastReportAt: now,
   }));
-  saveJson(SPOTS_FILE, knownSpots);
-}
-
-function saveJson(file, data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = file + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(data));
-  fs.renameSync(tmp, file);
+  await persist("known_spots", SPOTS_FILE, knownSpots);
 }
 
 let saveTimer = null;
@@ -103,12 +147,16 @@ function scheduleSave() {
   if (saveTimer) return;
   saveTimer = setTimeout(() => {
     saveTimer = null;
-    saveJson(DATA_FILE, reports);
+    persist("reports", DATA_FILE, reports).catch((e) =>
+      console.error("Failed to save reports:", e.message)
+    );
   }, 500);
 }
 
 function saveKnownSpots() {
-  saveJson(SPOTS_FILE, knownSpots);
+  persist("known_spots", SPOTS_FILE, knownSpots).catch((e) =>
+    console.error("Failed to save spots:", e.message)
+  );
 }
 
 // Great-circle distance in metres.
@@ -167,8 +215,8 @@ function pruneExpired() {
   if (reports.length !== before) scheduleSave();
 }
 
-loadReports();
-loadKnownSpots();
+await initStore();
+await loadAll();
 pruneExpired();
 setInterval(pruneExpired, 60 * 1000).unref();
 

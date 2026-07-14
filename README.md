@@ -37,9 +37,18 @@ npm start
 # open http://localhost:3000
 ```
 
-Reports are stored in `data/reports.json` (created automatically). To share
-with your friends, deploy anywhere Node runs (Railway, Fly.io, Render, a VPS)
-and send them the URL — everyone hitting the same server sees the same
+### Storage
+
+- **With a database** (recommended for anything shared): set `DATABASE_URL` to a
+  Postgres connection string and data is stored there, surviving restarts and
+  redeploys. The `render.yaml` blueprint provisions a free Postgres and wires
+  `DATABASE_URL` in automatically.
+- **Without one**: data falls back to local JSON files under `data/` — perfect
+  for local development, but note those files don't survive an ephemeral host's
+  redeploy.
+
+To share with your friends, deploy anywhere Node runs (Render, Railway, Fly.io,
+a VPS) and send them the URL — everyone hitting the same server sees the same
 reports.
 
 ## API

@@ -452,10 +452,10 @@ function renderSpots(spots) {
     seen.add(s.id);
     const icon = L.divIcon({
       className: "",
-      html: `<div class="spot-marker">📍</div>`,
-      iconSize: [30, 30],
-      iconAnchor: [15, 28],
-      popupAnchor: [0, -26],
+      html: `<div class="spot-marker"><span class="spot-glyph">🚓</span></div>`,
+      iconSize: [34, 44],
+      iconAnchor: [17, 43],
+      popupAnchor: [0, -42],
     });
     let marker = spotMarkerById.get(s.id);
     if (!marker) {
