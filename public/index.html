@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>POPO Map — ด่านตรวจกรุงเทพฯ</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚨</text></svg>">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon">🚨</span>
+      <div class="brand-text">
+        <strong>POPO Map</strong>
+        <small data-i18n="subtitle">ด่านตรวจ กรุงเทพฯ</small>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="listBtn" class="icon-btn" title="Recent reports">📋</button>
+      <button id="langBtn" class="icon-btn lang-btn">EN</button>
+    </div>
+  </header>
+
+  <div id="map"></div>
+
+  <button id="locateBtn" class="fab fab-locate" title="My location">📍</button>
+  <button id="reportBtn" class="fab fab-report">
+    <span class="fab-plus">+</span> <span data-i18n="report">รายงานด่าน</span>
+  </button>
+
+  <div id="pickBanner" class="pick-banner hidden">
+    <span data-i18n="tapMap">แตะบนแผนที่เพื่อระบุตำแหน่งด่าน</span>
+    <button id="pickCancel" data-i18n="cancel">ยกเลิก</button>
+  </div>
+
+  <!-- Report type bottom sheet -->
+  <div id="sheet" class="sheet hidden">
+    <div class="sheet-handle"></div>
+    <h3 data-i18n="whatKind">เจอด่านแบบไหน?</h3>
+    <div id="typeGrid" class="type-grid"></div>
+    <input id="descInput" type="text" maxlength="200" data-i18n-placeholder="descPlaceholder"
+      placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)">
+    <div class="sheet-actions">
+      <button id="sheetCancel" class="btn btn-ghost" data-i18n="cancel">ยกเลิก</button>
+      <button id="sheetSubmit" class="btn btn-primary" data-i18n="submit" disabled>ส่งรายงาน</button>
+    </div>
+  </div>
+
+  <!-- Recent reports panel -->
+  <div id="listPanel" class="list-panel hidden">
+    <div class="list-header">
+      <h3 data-i18n="recent">รายงานล่าสุด</h3>
+      <button id="listClose" class="icon-btn">✕</button>
+    </div>
+    <div id="listBody" class="list-body"></div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <div id="overlay" class="overlay hidden"></div>
+
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
