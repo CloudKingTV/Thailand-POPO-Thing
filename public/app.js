@@ -29,6 +29,18 @@ const I18N = {
     hourAgo: "ชม.ที่แล้ว",
     locating: "กำลังหาตำแหน่งของคุณ...",
     locationError: "ไม่สามารถหาตำแหน่งได้",
+    markUsual: "🔁 จุดนี้เป็นด่านประจำ (ทำเครื่องหมายไว้)",
+    usualSpot: "จุดด่านประจำ",
+    usualSpotSub: "ชุมชนทำเครื่องหมายว่ามักมีด่านบริเวณนี้",
+    reportHere: "รายงานว่ามีด่านตอนนี้",
+    markedUsual: "ทำเครื่องหมายจุดด่านประจำแล้ว 📍",
+    reportsWord: "รายงาน",
+    proxSub: "คุณอยู่ใกล้ด่านนี้ — ยังอยู่ไหม?",
+    proxStill: "ยังอยู่",
+    proxGone: "ไปแล้ว",
+    finesTitle: "ค่าปรับจราจร (โดยประมาณ)",
+    finesNote:
+      "จำนวนโดยประมาณตาม พ.ร.บ.จราจรทางบก ค่าปรับจริงขึ้นอยู่กับดุลยพินิจของเจ้าหน้าที่ พื้นที่ และการแก้ไขกฎหมาย ใช้เป็นแนวทางคร่าว ๆ ไม่ใช่คำแนะนำทางกฎหมาย",
     title: "POPO Map — ด่านตรวจกรุงเทพฯ",
     types: {
       checkpoint: "ด่านตรวจ",
@@ -63,6 +75,18 @@ const I18N = {
     hourAgo: "h ago",
     locating: "Finding your location...",
     locationError: "Couldn't get your location",
+    markUsual: "🔁 This is a usual/recurring spot (mark it)",
+    usualSpot: "Usual checkpoint spot",
+    usualSpotSub: "Community-marked recurring checkpoint area",
+    reportHere: "Report a checkpoint here now",
+    markedUsual: "Marked as a usual spot 📍",
+    reportsWord: "reports",
+    proxSub: "You're near this checkpoint — still there?",
+    proxStill: "Still there",
+    proxGone: "Gone",
+    finesTitle: "Traffic fines (approximate)",
+    finesNote:
+      "Approximate amounts under the Land Traffic Act. Actual fines vary with officer discretion, province, and law changes — treat this as a rough guide, not legal advice.",
     title: "POPO Map — Bangkok Police Checkpoints",
     types: {
       checkpoint: "Checkpoint",
@@ -84,6 +108,32 @@ const TYPE_EMOJI = {
   police: "👮",
 };
 
+// Rough reference of common Thai traffic fines. Amounts are approximate
+// maximums under the Land Traffic Act; a disclaimer is shown alongside.
+const FINES = [
+  { emoji: "🪖", en: "No helmet (motorcycle)", th: "ไม่สวมหมวกกันน็อก", amtEn: "up to ฿500 (often ~฿400)", amtTh: "สูงสุด 500 บาท (มักพบ ~400)" },
+  { emoji: "📸", en: "Speeding", th: "ขับเร็วเกินกำหนด", amtEn: "up to ฿1,000", amtTh: "สูงสุด 1,000 บาท" },
+  { emoji: "🪪", en: "No driver's license", th: "ไม่มีใบขับขี่", amtEn: "up to ฿1,000", amtTh: "สูงสุด 1,000 บาท" },
+  { emoji: "📄", en: "License not carried", th: "ไม่พกใบขับขี่", amtEn: "up to ฿1,000 (often ~฿200)", amtTh: "สูงสุด 1,000 บาท (มักพบ ~200)" },
+  { emoji: "🚦", en: "Running a red light", th: "ฝ่าไฟแดง", amtEn: "up to ฿1,000", amtTh: "สูงสุด 1,000 บาท" },
+  { emoji: "📱", en: "Phone while driving", th: "ใช้โทรศัพท์ขณะขับ", amtEn: "up to ฿1,000", amtTh: "สูงสุด 1,000 บาท" },
+  { emoji: "🔒", en: "No seatbelt", th: "ไม่คาดเข็มขัดนิรภัย", amtEn: "up to ฿2,000", amtTh: "สูงสุด 2,000 บาท" },
+  { emoji: "🏍️", en: "Loud / modified exhaust", th: "ท่อไอเสียเสียงดัง/ดัดแปลง", amtEn: "up to ฿1,000", amtTh: "สูงสุด 1,000 บาท" },
+  { emoji: "🍺", en: "Drink driving", th: "เมาแล้วขับ", amtEn: "฿5,000–20,000 + court, possible jail & licence suspension", amtTh: "5,000–20,000 บาท + ขึ้นศาล อาจถูกจำคุก/พักใบขับขี่" },
+];
+
+// Great-circle distance in metres (Haversine).
+function distMeters(aLat, aLng, bLat, bLng) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
 // Saved preference wins; otherwise follow the browser language.
 let lang = localStorage.getItem("popo-lang") ||
   ((navigator.language || "").toLowerCase().startsWith("th") ? "th" : "en");
@@ -103,9 +153,12 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
 
+const spotsLayer = L.layerGroup().addTo(map);
 const markersLayer = L.layerGroup().addTo(map);
 const markerById = new Map();
+const spotMarkerById = new Map();
 let reportsCache = [];
+let spotsCache = [];
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -122,9 +175,13 @@ const pickBanner = $("pickBanner");
 const sheet = $("sheet");
 const typeGrid = $("typeGrid");
 const descInput = $("descInput");
+const recurringChk = $("recurringChk");
 const sheetSubmit = $("sheetSubmit");
 const overlay = $("overlay");
 const toastEl = $("toast");
+const finesBtn = $("finesBtn");
+const finesSheet = $("finesSheet");
+const proxCard = $("proxCard");
 
 // ---------------------------------------------------------------------------
 // UI helpers
@@ -157,7 +214,11 @@ function applyLang() {
   });
   buildTypeGrid();
   renderReports(reportsCache);
+  renderSpots(spotsCache);
   renderList();
+  buildFines();
+  $("proxStill").textContent = t("proxStill");
+  $("proxGone").textContent = t("proxGone");
 }
 
 langBtn.addEventListener("click", () => {
@@ -197,6 +258,7 @@ function stopPicking() {
 function openSheet() {
   selectedType = null;
   descInput.value = "";
+  recurringChk.checked = false;
   sheetSubmit.disabled = true;
   buildTypeGrid();
   sheet.classList.remove("hidden");
@@ -255,13 +317,15 @@ sheetSubmit.addEventListener("click", async () => {
         lng: pickedLatLng.lng,
         type: selectedType,
         description: descInput.value.trim(),
+        recurring: recurringChk.checked,
       }),
     });
     if (!res.ok) throw new Error();
+    const markedUsual = recurringChk.checked;
     closeSheet();
     stopPicking();
-    toast(t("reported"));
-    await fetchReports();
+    toast(markedUsual ? t("markedUsual") : t("reported"));
+    await Promise.all([fetchReports(), fetchSpots()]);
   } catch {
     toast(t("error"));
     sheetSubmit.disabled = false;
@@ -345,6 +409,82 @@ function renderReports(reports) {
 }
 
 // ---------------------------------------------------------------------------
+// Usual spots (persistent, community-marked recurring checkpoints)
+// ---------------------------------------------------------------------------
+
+function spotLabel(s) {
+  const l = lang === "th" ? s.labelTh || s.label : s.label || s.labelTh;
+  return l || t("usualSpot");
+}
+
+function spotPopupHtml(s) {
+  const div = document.createElement("div");
+  const count = s.reportCount
+    ? `<div class="popup-meta">${s.reportCount} ${t("reportsWord")}</div>`
+    : "";
+  div.innerHTML = `
+    <div class="popup-title">📍 ${escapeHtml(spotLabel(s))}</div>
+    <div class="popup-desc">${t("usualSpotSub")}</div>
+    ${count}
+    <div class="popup-actions">
+      <button class="confirm-btn spot-report-btn">${t("reportHere")}</button>
+    </div>`;
+  div.querySelector(".spot-report-btn").addEventListener("click", () => {
+    map.closePopup();
+    reportAtSpot(s);
+  });
+  return div;
+}
+
+// Pre-fill the report flow at a known spot's location.
+function reportAtSpot(s) {
+  pickedLatLng = L.latLng(s.lat, s.lng);
+  if (pickedMarker) map.removeLayer(pickedMarker);
+  pickedMarker = L.marker(pickedLatLng).addTo(map);
+  picking = true; // so cancel cleans up the temp marker
+  openSheet();
+}
+
+function renderSpots(spots) {
+  spotsCache = spots;
+  const seen = new Set();
+  for (const s of spots) {
+    seen.add(s.id);
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="spot-marker">📍</div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 28],
+      popupAnchor: [0, -26],
+    });
+    let marker = spotMarkerById.get(s.id);
+    if (!marker) {
+      marker = L.marker([s.lat, s.lng], { icon }).addTo(spotsLayer);
+      spotMarkerById.set(s.id, marker);
+    }
+    marker.unbindPopup();
+    marker.bindPopup(() => spotPopupHtml(spotsCache.find((x) => x.id === s.id) || s));
+  }
+  for (const [id, marker] of spotMarkerById) {
+    if (!seen.has(id)) {
+      spotsLayer.removeLayer(marker);
+      spotMarkerById.delete(id);
+    }
+  }
+}
+
+async function fetchSpots() {
+  try {
+    const res = await fetch("/api/known-spots");
+    if (!res.ok) return;
+    const data = await res.json();
+    renderSpots(data.spots || []);
+  } catch {
+    /* keep existing */
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Recent reports list
 // ---------------------------------------------------------------------------
 
@@ -381,10 +521,56 @@ listBtn.addEventListener("click", () => {
 $("listClose").addEventListener("click", () => listPanel.classList.add("hidden"));
 
 // ---------------------------------------------------------------------------
-// Geolocation
+// Traffic fines reference
+// ---------------------------------------------------------------------------
+
+function buildFines() {
+  const body = $("finesBody");
+  body.innerHTML = "";
+  for (const f of FINES) {
+    const row = document.createElement("div");
+    row.className = "fine-row";
+    row.innerHTML = `
+      <span class="fine-emoji">${f.emoji}</span>
+      <span class="fine-name">${lang === "th" ? f.th : f.en}</span>
+      <span class="fine-amt">${lang === "th" ? f.amtTh : f.amtEn}</span>`;
+    body.appendChild(row);
+  }
+}
+
+function openFines() {
+  finesSheet.classList.remove("hidden");
+  overlay.classList.remove("hidden");
+}
+function closeFines() {
+  finesSheet.classList.add("hidden");
+  overlay.classList.add("hidden");
+}
+finesBtn.addEventListener("click", openFines);
+$("finesClose").addEventListener("click", closeFines);
+
+// ---------------------------------------------------------------------------
+// Geolocation: locate button + continuous watch for proximity prompts
 // ---------------------------------------------------------------------------
 
 let myLocationMarker = null;
+let lastPos = null;
+
+function drawMe(lat, lng) {
+  const latlng = [lat, lng];
+  if (myLocationMarker) {
+    myLocationMarker.setLatLng(latlng);
+  } else {
+    myLocationMarker = L.circleMarker(latlng, {
+      radius: 8,
+      color: "#2563eb",
+      fillColor: "#3b82f6",
+      fillOpacity: 0.9,
+      weight: 2,
+    }).addTo(map);
+  }
+}
+
 locateBtn.addEventListener("click", () => {
   if (!navigator.geolocation) {
     toast(t("locationError"));
@@ -393,21 +579,72 @@ locateBtn.addEventListener("click", () => {
   toast(t("locating"));
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      const latlng = [pos.coords.latitude, pos.coords.longitude];
-      if (myLocationMarker) map.removeLayer(myLocationMarker);
-      myLocationMarker = L.circleMarker(latlng, {
-        radius: 8,
-        color: "#2563eb",
-        fillColor: "#3b82f6",
-        fillOpacity: 0.9,
-        weight: 2,
-      }).addTo(map);
-      map.setView(latlng, 15);
+      drawMe(pos.coords.latitude, pos.coords.longitude);
+      map.setView([pos.coords.latitude, pos.coords.longitude], 15);
     },
     () => toast(t("locationError")),
     { enableHighAccuracy: true, timeout: 10000 }
   );
+  startGeoWatch();
 });
+
+// --- Proximity "still there?" prompt -----------------------------------------
+
+const PROX_ENTER_M = 150; // prompt when this close to an active report
+const PROX_REPROMPT_MS = 20 * 60 * 1000; // don't re-nag about the same one
+const promptedAt = {}; // reportId -> last prompt timestamp
+let proxReportId = null;
+
+function startGeoWatch() {
+  if (!navigator.geolocation || startGeoWatch.id != null) return;
+  startGeoWatch.id = navigator.geolocation.watchPosition(
+    (pos) => {
+      lastPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      drawMe(lastPos.lat, lastPos.lng);
+      checkProximity();
+    },
+    () => {},
+    { enableHighAccuracy: true, maximumAge: 15000, timeout: 25000 }
+  );
+}
+
+function checkProximity() {
+  if (!lastPos || !proxCard.classList.contains("hidden")) return;
+  // Don't pop over an open sheet, the report flow, or the list panel.
+  if (!overlay.classList.contains("hidden") || picking) return;
+  let best = null;
+  let bestD = Infinity;
+  for (const r of reportsCache) {
+    const d = distMeters(lastPos.lat, lastPos.lng, r.lat, r.lng);
+    if (d <= PROX_ENTER_M && d < bestD && Date.now() - (promptedAt[r.id] || 0) > PROX_REPROMPT_MS) {
+      best = r;
+      bestD = d;
+    }
+  }
+  if (best) showProxPrompt(best);
+}
+
+function showProxPrompt(r) {
+  proxReportId = r.id;
+  promptedAt[r.id] = Date.now();
+  $("proxTitle").textContent = `${TYPE_EMOJI[r.type] || "🚧"} ${typeName(r.type)}`;
+  proxCard.classList.remove("hidden");
+}
+
+function hideProxPrompt() {
+  proxCard.classList.add("hidden");
+  proxReportId = null;
+}
+
+$("proxStill").addEventListener("click", async () => {
+  if (proxReportId) await voteOn(proxReportId, "confirm");
+  hideProxPrompt();
+});
+$("proxGone").addEventListener("click", async () => {
+  if (proxReportId) await voteOn(proxReportId, "clear");
+  hideProxPrompt();
+});
+$("proxDismiss").addEventListener("click", hideProxPrompt);
 
 // ---------------------------------------------------------------------------
 // Data polling
@@ -420,6 +657,7 @@ async function fetchReports() {
     const data = await res.json();
     renderReports(data.reports);
     if (!listPanel.classList.contains("hidden")) renderList();
+    checkProximity();
   } catch {
     /* offline — keep showing what we have */
   }
@@ -427,4 +665,10 @@ async function fetchReports() {
 
 applyLang();
 fetchReports();
+fetchSpots();
 setInterval(fetchReports, 30_000);
+setInterval(fetchSpots, 120_000);
+
+// Ask for location up front so the map centres on the user and the
+// "still there?" proximity prompts can work while they ride around.
+startGeoWatch();

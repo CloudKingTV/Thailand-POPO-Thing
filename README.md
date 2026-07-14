@@ -13,10 +13,19 @@ report feature in Waze, but as its own simple app. Built to replace the
   check, speed check, and general police presence
 - 👀 **Confirm or clear**: anyone can vote "still there" (extends the report)
   or "gone" — 3 "gone" votes removes it from the map
+- 📍 **"Still there?" proximity prompt**: with location on, when you drive/ride
+  within ~150 m of an active checkpoint the app pops up "Still there?" so you
+  can confirm or clear it in one tap — no hunting for the marker
+- 🔁 **Usual spots**: persistent, community-marked recurring checkpoint
+  locations, shown as quieter pins separate from live reports. Tick "usual
+  spot" when reporting to add one; nearby marks merge automatically. Ships
+  with a small editable seed list of well-known Bangkok areas
+- 💸 **Traffic fines reference**: a quick sheet of approximate fines (no
+  helmet, speeding, no licence, red light, phone, seatbelt, drink driving…)
 - ⏱️ Reports auto-expire after 4 hours so the map never shows stale stops;
   markers fade after 2 hours
 - 📋 Recent-reports list to jump to any active report
-- 🇹🇭/🇬🇧 Thai-first UI with one-tap English toggle
+- 🇹🇭/🇬🇧 Thai-first UI that auto-detects browser language, with a one-tap toggle
 - 📱 Mobile-first design — meant to be used from a phone
 - 🔄 Auto-refreshes every 30 seconds, so everyone sees the same map
 
@@ -38,9 +47,16 @@ reports.
 | Method | Path                        | Purpose                                    |
 | ------ | --------------------------- | ------------------------------------------ |
 | GET    | `/api/reports`              | All active (non-expired) reports           |
-| POST   | `/api/reports`              | Create a report `{lat, lng, type, description?}` |
+| POST   | `/api/reports`              | Create a report `{lat, lng, type, description?, recurring?}` |
 | POST   | `/api/reports/:id/confirm`  | "Still there" — extends expiry by 2 h      |
 | POST   | `/api/reports/:id/clear`    | "Gone" — 3 votes removes the report        |
+| GET    | `/api/known-spots`          | All usual/recurring checkpoint spots       |
+| POST   | `/api/known-spots`          | Mark a usual spot `{lat, lng, type?, label?}` (merges within 120 m) |
+
+Usual spots persist in `data/known-spots.json`; the group can edit that file
+to curate the recurring-spot layer. The traffic-fine figures are a rough,
+approximate reference (Land Traffic Act) and not legal advice — actual amounts
+vary with officer discretion, province, and law changes.
 
 Abuse guards: per-IP rate limiting, one vote per IP per report, coordinates
 must be inside Thailand, description capped at 200 chars.

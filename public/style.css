@@ -173,6 +173,16 @@ html, body {
   margin-bottom: 12px;
 }
 
+.recurring-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13.5px;
+  color: var(--text);
+  margin-bottom: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.recurring-row input { width: 18px; height: 18px; accent-color: var(--primary); }
+
 .sheet-actions { display: flex; gap: 10px; }
 .btn {
   flex: 1;
@@ -237,6 +247,15 @@ html, body {
 }
 .report-marker.stale { border-color: #9ca3af; opacity: 0.75; }
 
+/* Usual-spot markers: quieter than live reports */
+.spot-marker {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  font-size: 22px;
+  filter: grayscale(0.25);
+  opacity: 0.9;
+}
+
 .popup-title { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
 .popup-desc { font-size: 13px; margin-bottom: 4px; word-break: break-word; }
 .popup-meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
@@ -279,4 +298,71 @@ html, body {
   background: rgba(0, 0, 0, 0.35);
   z-index: 1002;
 }
+
+/* ---- Fines sheet ---- */
+.fines-sheet { z-index: 1004; }
+.fines-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.fines-head h3 { font-size: 17px; }
+.fines-body { max-height: 52vh; overflow-y: auto; }
+.fine-row {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.fine-emoji { font-size: 18px; }
+.fine-name { line-height: 1.25; }
+.fine-amt {
+  text-align: right;
+  font-weight: 700;
+  color: var(--primary-dark);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.fines-note {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 12px;
+  line-height: 1.45;
+}
+
+/* ---- Proximity "still there?" prompt ---- */
+.prox-card {
+  position: fixed;
+  left: 50%;
+  bottom: calc(90px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 1004;
+  background: var(--surface);
+  border: 2px solid var(--primary);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  width: calc(100vw - 28px);
+  max-width: 420px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.prox-text { display: flex; flex-direction: column; gap: 2px; }
+.prox-text strong { font-size: 15px; }
+.prox-text span { font-size: 13px; color: var(--muted); }
+.prox-actions { display: flex; gap: 8px; }
+.prox-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.prox-still { flex: 1; background: #dcfce7; color: #15803d; }
+.prox-gone { flex: 1; background: #fef3c7; color: #b45309; }
+.prox-dismiss { background: #f3f4f6; color: var(--muted); width: 44px; }
+
 .hidden:not(.sheet):not(.list-panel) { display: none; }

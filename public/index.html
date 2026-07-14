@@ -18,6 +18,7 @@
       </div>
     </div>
     <div class="topbar-actions">
+      <button id="finesBtn" class="icon-btn" title="Traffic fines">💸</button>
       <button id="listBtn" class="icon-btn" title="Recent reports">📋</button>
       <button id="langBtn" class="icon-btn lang-btn">EN</button>
     </div>
@@ -42,6 +43,10 @@
     <div id="typeGrid" class="type-grid"></div>
     <input id="descInput" type="text" maxlength="200" data-i18n-placeholder="descPlaceholder"
       placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)">
+    <label class="recurring-row">
+      <input id="recurringChk" type="checkbox">
+      <span data-i18n="markUsual">🔁 จุดนี้เป็นด่านประจำ (ทำเครื่องหมายไว้)</span>
+    </label>
     <div class="sheet-actions">
       <button id="sheetCancel" class="btn btn-ghost" data-i18n="cancel">ยกเลิก</button>
       <button id="sheetSubmit" class="btn btn-primary" data-i18n="submit" disabled>ส่งรายงาน</button>
@@ -55,6 +60,30 @@
       <button id="listClose" class="icon-btn">✕</button>
     </div>
     <div id="listBody" class="list-body"></div>
+  </div>
+
+  <!-- Fines reference sheet -->
+  <div id="finesSheet" class="sheet fines-sheet hidden">
+    <div class="sheet-handle"></div>
+    <div class="fines-head">
+      <h3 data-i18n="finesTitle">ค่าปรับจราจร (โดยประมาณ)</h3>
+      <button id="finesClose" class="icon-btn">✕</button>
+    </div>
+    <div id="finesBody" class="fines-body"></div>
+    <p class="fines-note" data-i18n="finesNote"></p>
+  </div>
+
+  <!-- Proximity "still there?" prompt -->
+  <div id="proxCard" class="prox-card hidden">
+    <div class="prox-text">
+      <strong id="proxTitle"></strong>
+      <span id="proxSub" data-i18n="proxSub">คุณอยู่ใกล้ด่านนี้ — ยังอยู่ไหม?</span>
+    </div>
+    <div class="prox-actions">
+      <button id="proxStill" class="prox-btn prox-still"></button>
+      <button id="proxGone" class="prox-btn prox-gone"></button>
+      <button id="proxDismiss" class="prox-btn prox-dismiss">✕</button>
+    </div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
