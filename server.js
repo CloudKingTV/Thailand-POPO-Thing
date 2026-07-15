@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
+import { paymentsRouter, initPayments } from "./payments.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -10,6 +11,7 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "reports.json");
 const SPOTS_FILE = path.join(DATA_DIR, "known-spots.json");
+const PAYORDERS_FILE = path.join(DATA_DIR, "pay-orders.json");
 // When DATABASE_URL is set (e.g. on Render) data is stored in Postgres so it
 // survives restarts and redeploys. Without it, we fall back to local JSON
 // files — handy for local development.
@@ -217,6 +219,10 @@ function pruneExpired() {
 
 await initStore();
 await loadAll();
+await initPayments({
+  load: () => loadKey("pay_orders", PAYORDERS_FILE, []),
+  save: (arr) => persist("pay_orders", PAYORDERS_FILE, arr),
+});
 pruneExpired();
 setInterval(pruneExpired, 60 * 1000).unref();
 
@@ -324,6 +330,9 @@ app.post("/api/known-spots", rateLimit(10), (req, res) => {
   if (!spot) return res.status(400).json({ error: "Spot limit reached" });
   res.status(201).json({ spot });
 });
+
+// Crypto → Thai QR payment (Solana Pay / USDC). See payments.js for scope.
+app.use("/api/pay", paymentsRouter(rateLimit));
 
 function vote(kind) {
   return (req, res) => {

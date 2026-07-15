@@ -70,6 +70,38 @@ vary with officer discretion, province, and law changes.
 Abuse guards: per-IP rate limiting, one vote per IP per report, coordinates
 must be inside Thailand, description capped at 200 chars.
 
+## Pay Thai QR with Solana / USDC (🪙, demo)
+
+An experimental flow to pay a Thai **PromptPay** merchant QR using USDC on
+Solana, via a peer-to-peer *settler* model (independent people accept your
+USDC into escrow and pay the merchant's THB for a small fee — the same idea as
+P2P Bitcoin settlers).
+
+What's real and implemented:
+
+- **PromptPay QR decoding** (`payments.js`): full EMVCo TLV parse + CRC-16
+  validation, extracting merchant, PromptPay target, and amount.
+- **Solana Pay request**: builds a real `solana:` USDC transfer request (QR +
+  wallet deep-link) — non-custodial, your wallet signs it.
+- **P2P order/escrow lifecycle**: `open → funded → claimed → paid → released`,
+  with the payout target revealed only to the settler who claims a job.
+
+| Method | Path                          | Purpose                                   |
+| ------ | ----------------------------- | ----------------------------------------- |
+| GET    | `/api/pay/config`             | Network, fee, treasury, disclaimer        |
+| POST   | `/api/pay/parse`              | Decode a PromptPay payload                 |
+| POST   | `/api/pay/intent`             | Price it in USDC + open an escrow order    |
+| GET    | `/api/pay/orders`             | Open/funded jobs for settlers              |
+| POST   | `/api/pay/orders/:id/{fund,claim,proof,release,cancel}` | Order lifecycle |
+
+> ⚠️ **This is a demo.** Escrow is simulated and **no real funds move**;
+> it defaults to Solana **devnet**. Running it for real means operating a P2P
+> crypto↔fiat exchange, which requires SEC/Bank of Thailand licensing, KYC/AML
+> on both sides, a trustless on-chain escrow actually holding the USDC, and
+> dispute handling — legal/operational work, not just code. The `settle()`
+> seam and `PAY_*` env vars (`PAY_NETWORK`, `PAY_TREASURY`, `PAY_SETTLEMENT`,
+> `PAY_SETTLER_FEE`) are where a licensed provider would plug in.
+
 ## Roadmap ideas
 
 - Expand beyond Bangkok (the server already accepts all of Thailand)
