@@ -2,3 +2,14 @@ node_modules/
 data/
 *.log
 .env
+
+# Solana/Anchor build artifacts
+onchain/target/
+onchain/.anchor/
+onchain/test-ledger/
+onchain/node_modules/
+**/*.rs.bk
+# keypairs — never commit signing keys
+*keypair*.json
+arbiter*.json
+onchain/**/target/

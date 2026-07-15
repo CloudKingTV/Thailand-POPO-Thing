@@ -20,10 +20,14 @@ import QRCode from "qrcode";
 // --- Config ----------------------------------------------------------------
 
 const PAY_NETWORK = (process.env.PAY_NETWORK || "devnet").toLowerCase(); // devnet | mainnet
-const PAY_MODE = process.env.PAY_SETTLEMENT === "live" ? "live" : "demo";
-// Treasury/settlement wallet the USDC is sent to. Placeholder (System Program
-// address) until an operator sets a real one they control.
-const TREASURY_WALLET = process.env.PAY_TREASURY || "11111111111111111111111111111111";
+const PLACEHOLDER_WALLET = "11111111111111111111111111111111"; // System Program = burn
+// Treasury/settlement wallet the USDC is sent to (before escrow is wired, this
+// is the fallback; with escrow on, funds go to the program vault, not here).
+const TREASURY_WALLET = process.env.PAY_TREASURY || PLACEHOLDER_WALLET;
+// On-chain escrow config. Live mode requires all of these.
+const ESCROW_PROGRAM = process.env.PAY_ESCROW_PROGRAM || "";
+const ARBITER_WALLET = process.env.PAY_ARBITER || "";
+const RPC_URL = process.env.PAY_RPC_URL || "";
 // USDC SPL mint per network.
 const USDC_MINT =
   PAY_NETWORK === "mainnet"
@@ -31,6 +35,44 @@ const USDC_MINT =
     : "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"; // Circle devnet USDC
 // Fallback THB per 1 USDC if the live rate can't be fetched.
 const RATE_FALLBACK = Number(process.env.THB_PER_USDC || 35);
+
+// ---------------------------------------------------------------------------
+// SAFETY GUARDRAIL. Real funds must never flow into a half-configured setup.
+// "live" mode is only honoured when a deployed escrow program, an arbiter, an
+// RPC endpoint, and a non-placeholder treasury are all present. Otherwise the
+// mode is forced back to "demo" (no real money moves) with a loud warning, so
+// enabling mainnet by flipping a single flag can't drain anyone.
+// ---------------------------------------------------------------------------
+function resolveMode() {
+  const wantLive = process.env.PAY_SETTLEMENT === "live";
+  if (!wantLive) return { mode: "demo", problems: [] };
+  const problems = [];
+  if (!ESCROW_PROGRAM) problems.push("PAY_ESCROW_PROGRAM (deployed escrow program id) is not set");
+  if (!ARBITER_WALLET) problems.push("PAY_ARBITER (operator authority) is not set");
+  if (!process.env.PAY_ARBITER_KEYPAIR) problems.push("PAY_ARBITER_KEYPAIR (arbiter signing key path/json) is not set");
+  if (!RPC_URL) problems.push("PAY_RPC_URL is not set");
+  if (!process.env.PAY_TREASURY || TREASURY_WALLET === PLACEHOLDER_WALLET) {
+    problems.push("PAY_TREASURY is unset or the burn-address placeholder");
+  }
+  if (problems.length) return { mode: "demo", problems };
+  return { mode: "live", problems: [] };
+}
+
+const { mode: PAY_MODE, problems: PAY_PROBLEMS } = resolveMode();
+
+export function payStartupReport() {
+  if (process.env.PAY_SETTLEMENT === "live" && PAY_MODE !== "live") {
+    console.warn(
+      "\n⚠️  PAY_SETTLEMENT=live was requested but live mode is BLOCKED — running payments in DEMO (no real funds). Fix:\n  - " +
+        PAY_PROBLEMS.join("\n  - ") +
+        "\n"
+    );
+  } else if (PAY_MODE === "live") {
+    console.log(`Payments: LIVE on ${PAY_NETWORK} (escrow ${ESCROW_PROGRAM.slice(0, 8)}…)`);
+  } else {
+    console.log(`Payments: demo mode on ${PAY_NETWORK} (no real funds move)`);
+  }
+}
 
 // --- EMVCo / PromptPay QR decoding -----------------------------------------
 
@@ -195,17 +237,34 @@ const round2 = (n) => Math.round(n * 100) / 100;
 
 let orders = [];
 let persistOrders = () => {};
+let escrowLive = null; // on-chain escrow client, only in live mode
 
 export async function initPayments(adapter) {
-  if (!adapter) return;
-  orders = (await adapter.load()) || [];
-  persistOrders = () => {
+  if (adapter) {
+    orders = (await adapter.load()) || [];
+    persistOrders = () => {
+      try {
+        adapter.save(orders);
+      } catch {
+        /* best effort */
+      }
+    };
+  }
+  if (PAY_MODE === "live") {
     try {
-      adapter.save(orders);
-    } catch {
-      /* best effort */
+      const ec = await import("./escrow-client.js");
+      await ec.initEscrowClient({
+        rpcUrl: RPC_URL,
+        programId: ESCROW_PROGRAM,
+        arbiterSecret: process.env.PAY_ARBITER_KEYPAIR,
+        usdcMint: USDC_MINT,
+      });
+      escrowLive = ec;
+      console.log("Escrow client ready (live)");
+    } catch (e) {
+      console.error("Escrow client init failed — staying simulated:", e.message);
     }
-  };
+  }
 }
 
 // The full PromptPay target/payload is only exposed to a settler once they've
@@ -219,6 +278,9 @@ const DISCLAIMER =
   "Demo: escrow is simulated and no real funds move. A live version is a P2P " +
   "crypto↔fiat exchange requiring licensing, KYC/AML, on-chain escrow and " +
   "dispute handling.";
+const LIVE_NOTE =
+  "Funds are held in an on-chain escrow and released to the settler only after " +
+  "the merchant is paid. Refunds available on dispute or timeout.";
 
 // --- Routes ----------------------------------------------------------------
 
@@ -231,9 +293,11 @@ export function paymentsRouter(rateLimit) {
       mode: PAY_MODE,
       usdcMint: USDC_MINT,
       treasury: TREASURY_WALLET,
-      treasuryIsPlaceholder: TREASURY_WALLET === "11111111111111111111111111111111",
+      treasuryIsPlaceholder: TREASURY_WALLET === PLACEHOLDER_WALLET,
+      escrowProgram: ESCROW_PROGRAM || null,
+      arbiter: ARBITER_WALLET || null,
       settlerFee: SETTLER_FEE,
-      disclaimer: DISCLAIMER,
+      disclaimer: PAY_MODE === "live" ? LIVE_NOTE : DISCLAIMER,
     });
   });
 
@@ -285,6 +349,8 @@ export function paymentsRouter(rateLimit) {
       thbPerUsdc: rate,
       status: "open", // open → funded → claimed → paid → released | cancelled
       settler: null,
+      settlerWallet: null,
+      payerWallet: typeof req.body?.payerWallet === "string" ? req.body.payerWallet : null,
       proof: null,
       createdAt: now,
       fundedAt: null,
@@ -335,6 +401,7 @@ export function paymentsRouter(rateLimit) {
     }
     o.status = "claimed";
     o.settler = String(req.body?.settler || "anon").slice(0, 40);
+    if (typeof req.body?.settlerWallet === "string") o.settlerWallet = req.body.settlerWallet;
     o.claimedAt = Date.now();
     persistOrders();
     res.json({ order: publicOrder(o, true) }); // reveal target + payload to settler
@@ -353,10 +420,19 @@ export function paymentsRouter(rateLimit) {
   });
 
   // Payer confirms they got their goods → escrow releases USDC to the settler.
-  router.post("/orders/:id/release", rateLimit(30), (req, res) => {
+  router.post("/orders/:id/release", rateLimit(30), async (req, res) => {
     const o = orders.find((x) => x.id === req.params.id);
     if (!o) return res.status(404).json({ error: "not-found" });
     if (o.status !== "paid") return res.status(409).json({ error: "not-paid" });
+
+    // Live mode: perform the real on-chain release to the settler.
+    if (escrowLive && o.settlerWallet && o.payerWallet) {
+      try {
+        o.releaseTx = await escrowLive.release(o.id, o.settlerWallet, o.payerWallet);
+      } catch (e) {
+        return res.status(502).json({ error: "onchain-release-failed", detail: e.message });
+      }
+    }
     o.status = "released";
     o.releasedAt = Date.now();
     persistOrders();

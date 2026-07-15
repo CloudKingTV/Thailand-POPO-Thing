@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
-import { paymentsRouter, initPayments } from "./payments.js";
+import { paymentsRouter, initPayments, payStartupReport } from "./payments.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -223,6 +223,7 @@ await initPayments({
   load: () => loadKey("pay_orders", PAYORDERS_FILE, []),
   save: (arr) => persist("pay_orders", PAYORDERS_FILE, arr),
 });
+payStartupReport();
 pruneExpired();
 setInterval(pruneExpired, 60 * 1000).unref();
 

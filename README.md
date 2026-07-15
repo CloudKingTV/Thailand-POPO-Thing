@@ -94,13 +94,27 @@ What's real and implemented:
 | GET    | `/api/pay/orders`             | Open/funded jobs for settlers              |
 | POST   | `/api/pay/orders/:id/{fund,claim,proof,release,cancel}` | Order lifecycle |
 
-> ⚠️ **This is a demo.** Escrow is simulated and **no real funds move**;
-> it defaults to Solana **devnet**. Running it for real means operating a P2P
-> crypto↔fiat exchange, which requires SEC/Bank of Thailand licensing, KYC/AML
-> on both sides, a trustless on-chain escrow actually holding the USDC, and
-> dispute handling — legal/operational work, not just code. The `settle()`
-> seam and `PAY_*` env vars (`PAY_NETWORK`, `PAY_TREASURY`, `PAY_SETTLEMENT`,
-> `PAY_SETTLER_FEE`) are where a licensed provider would plug in.
+### Real on-chain escrow
+
+The trustless escrow that makes this safe for real funds lives in
+[`onchain/`](onchain/) — an Anchor/Solana program (`popo_escrow`) that locks the
+payer's USDC and releases it to the settler **only after** the merchant is paid,
+with refunds on dispute/timeout. See [`onchain/README.md`](onchain/README.md) to
+build, test, and deploy it, and [`AUDIT.md`](AUDIT.md) for the required security
+audit before mainnet.
+
+A **safety guardrail** in `payments.js` forces demo mode unless a deployed
+escrow program, arbiter, RPC, and a real (non-placeholder) treasury are all
+configured — so mainnet can't be enabled by flipping a single flag into a
+half-built setup.
+
+> ⚠️ **Default is a demo.** Until the escrow program is deployed and the
+> `PAY_*` env vars are set, escrow is simulated, no real funds move, and it
+> runs on Solana **devnet**. Live operation is a P2P crypto↔fiat exchange
+> requiring licensing, KYC/AML, the audited on-chain escrow, and dispute
+> handling. Env vars: `PAY_SETTLEMENT`, `PAY_NETWORK`, `PAY_ESCROW_PROGRAM`,
+> `PAY_ARBITER`, `PAY_ARBITER_KEYPAIR`, `PAY_RPC_URL`, `PAY_TREASURY`,
+> `PAY_SETTLER_FEE`.
 
 ## Roadmap ideas
 
